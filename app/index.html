@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="A clear view of project health, ownership, and priorities.">
+    <title>Project Pulse</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="dashboard">
+      <header class="dashboard__header">
+        <div>
+          <p class="dashboard__eyebrow">Team overview</p>
+          <h1>Project Pulse</h1>
+          <p class="dashboard__subtitle">A focused view of what is moving forward, what needs attention, and who is leading the work.</p>
+        </div>
+        <div class="dashboard__actions">
+          <button class="button button--primary" type="button" id="refresh-button">Refresh data</button>
+        </div>
+      </header>
+
+      <section class="summary" aria-label="Project summary" id="summary" hidden></section>
+
+      <section class="projects-section" aria-labelledby="projects-heading">
+        <div class="projects-section__header">
+          <div>
+            <p class="dashboard__eyebrow">Workstreams</p>
+            <h2 id="projects-heading">Active projects</h2>
+          </div>
+          <span class="projects-section__count" id="project-count" aria-live="polite"></span>
+        </div>
+
+        <div class="dashboard__message" id="loading-state" role="status">Loading project pulse...</div>
+        <div class="error-state" id="error-state" role="alert" hidden>
+          <strong>We could not load the project pulse.</strong>
+          <p id="error-message">Please try again.</p>
+          <button class="button" type="button" id="retry-button">Try again</button>
+        </div>
+        <div class="empty-state" id="empty-state" hidden>
+          <strong>No projects to show yet.</strong>
+          <p>Add a project to the data file to see it here.</p>
+        </div>
+        <div class="project-grid" id="project-grid" aria-live="polite" aria-busy="true"></div>
+      </section>
+    </main>
+
+    <template id="metric-template">
+      <article class="metric-card">
+        <span class="metric-card__label"></span>
+        <strong class="metric-card__value"></strong>
+      </article>
+    </template>
+
+    <template id="project-template">
+      <article class="project-card">
+        <div class="project-card__header">
+          <div>
+            <h3 class="project-card__title"></h3>
+            <p class="project-card__summary"></p>
+          </div>
+          <span class="project-card__status" aria-label="Status"></span>
+        </div>
+        <p class="project-card__activity"></p>
+        <dl class="project-card__meta">
+          <div class="project-card__meta-item">
+            <dt class="project-card__meta-label">Owner</dt>
+            <dd class="project-card__meta-value project-card__owner"></dd>
+          </div>
+          <div class="project-card__meta-item">
+            <dt class="project-card__meta-label">Priority</dt>
+            <dd class="project-card__meta-value">
+              <span class="project-card__priority"></span>
+            </dd>
+          </div>
+        </dl>
+      </article>
+    </template>
+
+    <noscript>
+      <p class="dashboard__message">Project Pulse needs JavaScript enabled to load project data.</p>
+    </noscript>
+
+    <script>
+      (() => {
+        const dataUrl = "project-data.json";
+        const grid = document.getElementById("project-grid");
+        const summary = document.getElementById("summary");
+        const count = document.getElementById("project-count");
+        const loading = document.getElementById("loading-state");
+        const error = document.getElementById("error-state");
+        const errorMessage = document.getElementById("error-message");
+        const empty = document.getElementById("empty-state");
+        const refreshButton = document.getElementById("refresh-button");
+        const retryButton = document.getElementById("retry-button");
+        const projectTemplate = document.getElementById("project-template");
+        const metricTemplate = document.getElementById("metric-template");
+
+        const toText = (value, fallback) => typeof value === "string" && value.trim() ? value.trim() : fallback;
+        const toKey = (value) => toText(value, "unknown").toLowerCase().replace(/\s+/g, "-");
+
+        function setState(state) {
+          loading.hidden = state !== "loading";
+          error.hidden = state !== "error";
+          empty.hidden = state !== "empty";
+          summary.hidden = state !== "ready";
+          grid.hidden = state !== "ready";
+          grid.setAttribute("aria-busy", state === "loading" ? "true" : "false");
+        }
+
+        function renderSummary(projects) {
+          const onTrack = projects.filter((project) => toKey(project.status) === "on-track").length;
+          const atRisk = projects.filter((project) => toKey(project.status) === "at-risk").length;
+          const highPriority = projects.filter((project) => toKey(project.priority) === "high").length;
+          const metrics = [
+            ["Total projects", projects.length],
+            ["On track", onTrack],
+            ["Needs attention", atRisk],
+            ["High priority", highPriority]
+          ];
+          summary.replaceChildren(...metrics.map(([label, value]) => {
+            const metric = metricTemplate.content.cloneNode(true);
+            metric.querySelector(".metric-card__label").textContent = label;
+            metric.querySelector(".metric-card__value").textContent = value;
+            return metric;
+          }));
+        }
+
+        function renderProjects(projects) {
+          grid.replaceChildren(...projects.map((project) => {
+            const card = projectTemplate.content.cloneNode(true);
+            const status = toText(project.status, "Unknown");
+            const priority = toText(project.priority, "Unknown");
+            const statusKey = toKey(status);
+            const priorityKey = toKey(priority);
+            card.querySelector(".project-card__title").textContent = toText(project.name, "Untitled project");
+            card.querySelector(".project-card__summary").textContent = "Project workstream";
+            card.querySelector(".project-card__activity").textContent = `Recent activity: ${toText(project.recentActivity, "No recent activity reported.")}`;
+            card.querySelector(".project-card__owner").textContent = toText(project.owner, "Unassigned");
+            const statusBadge = card.querySelector(".project-card__status");
+            statusBadge.textContent = status;
+            statusBadge.dataset.status = statusKey;
+            statusBadge.classList.add(`status-${statusKey}`);
+            const priorityBadge = card.querySelector(".project-card__priority");
+            priorityBadge.textContent = priority;
+            priorityBadge.dataset.priority = priorityKey;
+            priorityBadge.classList.add(`priority-${priorityKey}`);
+            return card;
+          }));
+        }
+
+        async function loadProjects() {
+          setState("loading");
+          grid.replaceChildren();
+          try {
+            const response = await fetch(dataUrl, { cache: "no-store" });
+            if (!response.ok) throw new Error(`Data request failed (${response.status})`);
+            const data = await response.json();
+            if (!data || !Array.isArray(data.projects)) throw new Error("The data file does not contain a projects array.");
+            const projects = data.projects.filter((project) => project && typeof project === "object");
+            if (projects.length === 0) {
+              count.textContent = "0 projects";
+              setState("empty");
+              return;
+            }
+            renderSummary(projects);
+            renderProjects(projects);
+            count.textContent = `${projects.length} ${projects.length === 1 ? "project" : "projects"}`;
+            setState("ready");
+          } catch (loadError) {
+            errorMessage.textContent = loadError instanceof Error ? loadError.message : "Please try again.";
+            setState("error");
+          }
+        }
+
+        refreshButton.addEventListener("click", loadProjects);
+        retryButton.addEventListener("click", loadProjects);
+        loadProjects();
+      })();
+    </script>
+  </body>
+</html>

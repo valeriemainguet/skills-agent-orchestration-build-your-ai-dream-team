@@ -1,0 +1,46 @@
+{
+  "projects": [
+    {
+      "name": "Atlas Checkout",
+      "owner": "Maya Chen",
+      "status": "on-track",
+      "recentActivity": "Payment flow passed the final integration review.",
+      "priority": "high"
+    },
+    {
+      "name": "Northstar Mobile",
+      "owner": "Jordan Ellis",
+      "status": "at-risk",
+      "recentActivity": "The accessibility audit uncovered three navigation issues.",
+      "priority": "high"
+    },
+    {
+      "name": "Signal Analytics",
+      "owner": "Priya Shah",
+      "status": "on-track",
+      "recentActivity": "The first customer cohort is now reporting in the new dashboard.",
+      "priority": "medium"
+    },
+    {
+      "name": "Mercury API",
+      "owner": "Luis Romero",
+      "status": "blocked",
+      "recentActivity": "Release is waiting on the external identity provider decision.",
+      "priority": "high"
+    },
+    {
+      "name": "Horizon Design System",
+      "owner": "Avery Brooks",
+      "status": "on-track",
+      "recentActivity": "The component migration guide is ready for team review.",
+      "priority": "low"
+    },
+    {
+      "name": "Greenline Operations",
+      "owner": "Samira Okafor",
+      "status": "at-risk",
+      "recentActivity": "The rollout plan was updated after the regional pilot.",
+      "priority": "medium"
+    }
+  ]
+}
